@@ -53,7 +53,7 @@ client.on('messageCreate', async (message) => {
   } else if (message.author.id === '691850152096563201') {
     relayConfig = {
       targetChannelId: '1478911704334078164',
-      roleId: '1478985743123615825'
+      roleId: '858933844052803615'
     };
     console.log(`User ID 691850152096563201 matched, will relay to channel 1478911704334078164`);
   } else if (message.author.id === '595096492432293898') {
