@@ -12,6 +12,15 @@ const client = new Client({
 const SOURCE_CHANNEL_ID = process.env.SOURCE_CHANNEL_ID;
 const TARGET_CHANNEL_ID = process.env.TARGET_CHANNEL_ID;
 
+// ✅ NEW: Allowed user IDs (only these users can trigger the relay)
+const ALLOWED_USER_IDS = new Set([
+  // existing users can be added here if you want to lock it down fully
+  "691850152096563201"
+]);
+
+// ✅ NEW: Additional tag to append at the end (role mention format)
+const EXTRA_PING_ID = "1478962966807183615"; // will mention as <@&...>
+
 // Helper to get or create a webhook in the target channel
 async function getOrCreateWebhook(channel) {
   const webhooks = await channel.fetchWebhooks();
@@ -38,7 +47,13 @@ client.on('messageCreate', async (message) => {
 
   console.log(`Message received from ${message.author.username}: "${message.content}"`);
 
-  // Check if message ends with '--' for both users
+  // ✅ NEW: Only allow specified user IDs (comment out if you want anyone to be able to use it)
+  if (!ALLOWED_USER_IDS.has(message.author.id)) {
+    console.log(`User ${message.author.id} not in allowed list, ignoring`);
+    return;
+  }
+
+  // Check if message ends with '--'
   if (!message.content.trim().endsWith('--')) {
     console.log(`Message does not end with '--', ignoring`);
     return;
@@ -67,8 +82,11 @@ client.on('messageCreate', async (message) => {
 
   // Remove the trailing '--' from the message content before relaying
   const relayedContent = message.content.replace(/--\s*$/, '').trim();
+
   // Append the appropriate role mention to trigger a mention
-  const finalContent = `${relayedContent} <@&${relayConfig.roleId}>`;
+  // ✅ UPDATED: add the extra ping at the end as well
+  const finalContent = `${relayedContent} <@&${relayConfig.roleId}> <@&${EXTRA_PING_ID}>`;
+
   console.log(`Relaying message: "${finalContent}" to channel ${relayConfig.targetChannelId}`);
   
   // Relay the message to the target channel using a webhook to mimic the user
@@ -86,4 +104,4 @@ client.on('messageCreate', async (message) => {
   }
 });
 
-client.login(process.env.DISCORD_TOKEN); 
+client.login(process.env.DISCORD_TOKEN);
