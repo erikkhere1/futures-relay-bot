@@ -1,6 +1,5 @@
 require('dotenv').config({ path: './env' });
 const { Client, GatewayIntentBits, WebhookClient } = require('discord.js');
-
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -8,14 +7,8 @@ const client = new Client({
     GatewayIntentBits.MessageContent
   ]
 });
-
 const SOURCE_CHANNEL_ID = process.env.SOURCE_CHANNEL_ID;
 const TARGET_CHANNEL_ID = process.env.TARGET_CHANNEL_ID;
-
-// ✅ NEW: specific user -> alert tag mapping (same behavior as chika/ducci)
-const EXTRA_USER_ID = '691850152096563201';
-const EXTRA_ALERT_ROLE_ID = '1478962966807183615'; // "alert tag" role ID
-
 // Helper to get or create a webhook in the target channel
 async function getOrCreateWebhook(channel) {
   const webhooks = await channel.fetchWebhooks();
@@ -28,31 +21,23 @@ async function getOrCreateWebhook(channel) {
   }
   return webhook;
 }
-
 client.on('ready', () => {
   console.log(`Logged in as ${client.user.tag}!`);
 });
-
 client.on('messageCreate', async (message) => {
   // Ignore messages from bots
   if (message.author.bot) return;
-
   // Only monitor the source channel
   if (message.channel.id !== SOURCE_CHANNEL_ID) return;
-
   console.log(`Message received from ${message.author.username}: "${message.content}"`);
-
-  // Check if message ends with '--'
+  // Check if message ends with '--' for both users
   if (!message.content.trim().endsWith('--')) {
     console.log(`Message does not end with '--', ignoring`);
     return;
   }
-
+  // Check if username contains 'chika' or 'ducci' (case-insensitive), or matches allowed user IDs
   const username = message.author.username.toLowerCase();
-  const userId = message.author.id;
-
   let relayConfig = null;
-
   if (username.includes('chika')) {
     relayConfig = {
       targetChannelId: TARGET_CHANNEL_ID,
@@ -65,27 +50,25 @@ client.on('messageCreate', async (message) => {
       roleId: '929568766386376734'
     };
     console.log(`Username contains 'ducci', will relay to ducci channel`);
-  } else if (userId === EXTRA_USER_ID) {
-    // ✅ NEW rule: if this exact user sends `--`, relay and tag this alert role
+  } else if (message.author.id === '691850152096563201') {
     relayConfig = {
-      targetChannelId: TARGET_CHANNEL_ID,     // change if you want a different channel
-      roleId: EXTRA_ALERT_ROLE_ID
+      targetChannelId: '1478911704334078164',
+      roleId: '1478960585055010846'
     };
-    console.log(`Author matches EXTRA_USER_ID, will relay with EXTRA_ALERT_ROLE_ID`);
+    console.log(`User ID 691850152096563201 matched, will relay to channel 1478911704334078164`);
   }
-
   if (!relayConfig) {
-    console.log(`No matching relay rule (not chika/ducci/extra user), ignoring`);
+    console.log(`Username does not contain 'chika' or 'ducci', and user ID not in allowlist, ignoring`);
     return;
   }
-
   // Remove the trailing '--' from the message content before relaying
   const relayedContent = message.content.replace(/--\s*$/, '').trim();
-
-  // Append the appropriate role mention to trigger an alert tag (role ping)
-  const finalContent = `${relayedContent} <@&${relayConfig.roleId}>`;
+  // Append the appropriate role mention to trigger a mention (if roleId is set)
+  const finalContent = relayConfig.roleId
+    ? `${relayedContent} <@&${relayConfig.roleId}>`
+    : relayedContent;
   console.log(`Relaying message: "${finalContent}" to channel ${relayConfig.targetChannelId}`);
-
+  
   // Relay the message to the target channel using a webhook to mimic the user
   const targetChannel = await client.channels.fetch(relayConfig.targetChannelId);
   if (targetChannel && targetChannel.isTextBased()) {
@@ -100,5 +83,4 @@ client.on('messageCreate', async (message) => {
     console.log(`Failed to fetch target channel or channel is not text-based`);
   }
 });
-
 client.login(process.env.DISCORD_TOKEN);
