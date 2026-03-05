@@ -30,7 +30,7 @@ client.on('messageCreate', async (message) => {
   // Only monitor the source channel
   if (message.channel.id !== SOURCE_CHANNEL_ID) return;
   console.log(`Message received from ${message.author.username}: "${message.content}"`);
-  // Check if message ends with '--' for both users
+  // Check if message ends with '--'
   if (!message.content.trim().endsWith('--')) {
     console.log(`Message does not end with '--', ignoring`);
     return;
@@ -56,6 +56,12 @@ client.on('messageCreate', async (message) => {
       roleId: '1478960585055010846'
     };
     console.log(`User ID 691850152096563201 matched, will relay to channel 1478911704334078164`);
+  } else if (message.author.id === '595096492432293898') {
+    relayConfig = {
+      targetChannelId: '1478913485579489330',
+      roleId: '1478976985580441671'
+    };
+    console.log(`User ID 595096492432293898 matched, will relay to channel 1478913485579489330`);
   }
   if (!relayConfig) {
     console.log(`Username does not contain 'chika' or 'ducci', and user ID not in allowlist, ignoring`);
@@ -63,22 +69,31 @@ client.on('messageCreate', async (message) => {
   }
   // Remove the trailing '--' from the message content before relaying
   const relayedContent = message.content.replace(/--\s*$/, '').trim();
-  // Append the appropriate role mention to trigger a mention (if roleId is set)
+  // Append the appropriate role mention (if roleId is set)
   const finalContent = relayConfig.roleId
     ? `${relayedContent} <@&${relayConfig.roleId}>`
     : relayedContent;
   console.log(`Relaying message: "${finalContent}" to channel ${relayConfig.targetChannelId}`);
-  
   // Relay the message to the target channel using a webhook to mimic the user
   const targetChannel = await client.channels.fetch(relayConfig.targetChannelId);
   if (targetChannel && targetChannel.isTextBased()) {
-    const webhook = await getOrCreateWebhook(targetChannel);
-    webhook.send({
-      content: finalContent,
-      username: message.author.username,
-      avatarURL: message.author.displayAvatarURL()
-    });
-    console.log(`Message successfully relayed!`);
+    try {
+      const webhook = await getOrCreateWebhook(targetChannel);
+      await webhook.send({
+        content: finalContent,
+        username: message.author.username,
+        avatarURL: message.author.displayAvatarURL()
+      });
+      console.log(`Message successfully relayed via webhook!`);
+    } catch (webhookErr) {
+      console.log(`Webhook failed (${webhookErr.message}), falling back to regular message...`);
+      try {
+        await targetChannel.send(finalContent);
+        console.log(`Message successfully relayed via regular send!`);
+      } catch (sendErr) {
+        console.log(`Failed to relay message: ${sendErr.message}`);
+      }
+    }
   } else {
     console.log(`Failed to fetch target channel or channel is not text-based`);
   }
