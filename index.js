@@ -12,10 +12,9 @@ const client = new Client({
 const SOURCE_CHANNEL_ID = process.env.SOURCE_CHANNEL_ID;
 const TARGET_CHANNEL_ID = process.env.TARGET_CHANNEL_ID;
 
-// ✅ NEW: additional user + tag
+// ✅ NEW: specific user -> alert tag mapping (same behavior as chika/ducci)
 const EXTRA_USER_ID = '691850152096563201';
-// NOTE: your “alert tag” looks like a role ID, so we mention it as <@&...>
-const EXTRA_ALERT_TAG_ID = '1478962966807183615';
+const EXTRA_ALERT_ROLE_ID = '1478962966807183615'; // "alert tag" role ID
 
 // Helper to get or create a webhook in the target channel
 async function getOrCreateWebhook(channel) {
@@ -49,8 +48,6 @@ client.on('messageCreate', async (message) => {
     return;
   }
 
-  // Check if username contains 'chika' or 'ducci' (case-insensitive),
-  // OR if the author is the specific extra user ID.
   const username = message.author.username.toLowerCase();
   const userId = message.author.id;
 
@@ -69,11 +66,12 @@ client.on('messageCreate', async (message) => {
     };
     console.log(`Username contains 'ducci', will relay to ducci channel`);
   } else if (userId === EXTRA_USER_ID) {
+    // ✅ NEW rule: if this exact user sends `--`, relay and tag this alert role
     relayConfig = {
-      targetChannelId: TARGET_CHANNEL_ID,
-      roleId: EXTRA_ALERT_TAG_ID
+      targetChannelId: TARGET_CHANNEL_ID,     // change if you want a different channel
+      roleId: EXTRA_ALERT_ROLE_ID
     };
-    console.log(`Matched EXTRA_USER_ID, will relay with EXTRA_ALERT_TAG_ID`);
+    console.log(`Author matches EXTRA_USER_ID, will relay with EXTRA_ALERT_ROLE_ID`);
   }
 
   if (!relayConfig) {
@@ -84,7 +82,7 @@ client.on('messageCreate', async (message) => {
   // Remove the trailing '--' from the message content before relaying
   const relayedContent = message.content.replace(/--\s*$/, '').trim();
 
-  // Append the appropriate role mention to trigger a mention
+  // Append the appropriate role mention to trigger an alert tag (role ping)
   const finalContent = `${relayedContent} <@&${relayConfig.roleId}>`;
   console.log(`Relaying message: "${finalContent}" to channel ${relayConfig.targetChannelId}`);
 
